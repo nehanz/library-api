@@ -49,22 +49,85 @@ BookRepository (JpaRepository<Book, Long>)
 
 ### Prerequisites
 
-- **JDK 21** installed
-- **Docker Desktop** (or local MySQL 8.4 instance)
+- **Docker Desktop** (Engine & Docker Compose v2)
+- **JDK 21** installed (for local builds and development)
 
-### 1. Start the MySQL Database
+---
 
-Start the containerized MySQL 8.4 instance using Docker Compose:
+### 1. Configure Environment Variables
+
+Create a `.env` file in the project root by copying `.env.example`:
 
 ```bash
-docker compose up -d
+cp .env.example .env
 ```
 
-This starts MySQL with database `library_db` on port `3306`.
+Ensure `.env` contains:
+```env
+DB_ROOT_PASSWORD=root123
+```
+*(Note: `.env` is listed in `.gitignore` and is never committed to source control).*
 
-### 2. Run the Application
+---
 
-Run the application using the Maven Wrapper:
+### 2. Build the Application JAR
+
+Package the Spring Boot application using the Maven Wrapper:
+
+```bash
+# On Linux / macOS:
+./mvnw clean package -DskipTests
+
+# On Windows:
+.\mvnw.cmd clean package -DskipTests
+```
+
+This generates `target/library-api-0.0.1-SNAPSHOT.jar`.
+
+---
+
+### 3. Run with Docker Compose (Recommended)
+
+Start both the API and MySQL database together:
+
+```bash
+docker compose up --build -d
+```
+
+- **API Container (`api`):** Accessible at `http://localhost:8080`
+- **Database Container (`db`):** Accessible at `localhost:3307` (Mapped from internal port `3306`)
+- **Data Persistence:** Database files are persisted across container restarts in the Docker named volume `library-data`.
+
+To inspect running services:
+```bash
+docker compose ps
+docker compose logs -f api
+```
+
+To stop services (preserving data volume):
+```bash
+docker compose down
+```
+
+---
+
+### 4. Alternative: Running the Standalone Docker Image
+
+You can also build and run the Docker image standalone:
+
+```bash
+# Build the Docker image
+docker build -t library-api .
+
+# Run the container (requires MySQL database reachable at configured host)
+docker run --name api-test -p 8080:8080 library-api
+```
+
+---
+
+### 5. Local Development (Without Docker Compose)
+
+To run the application locally on your host machine against a local MySQL instance:
 
 ```bash
 # On Linux / macOS:
@@ -72,11 +135,6 @@ Run the application using the Maven Wrapper:
 
 # On Windows:
 .\mvnw.cmd spring-boot:run
-```
-
-Once started, the embedded Tomcat web server will be listening on:
-```
-http://localhost:8080
 ```
 
 ---
@@ -137,7 +195,10 @@ Import this file into Postman to test all endpoints (`S1` through `S7`) in seque
 ```
 library-api/
 ├── pom.xml                                      # Maven dependencies and configuration
-├── docker-compose.yml                           # MySQL 8.4 Docker configuration
+├── Dockerfile                                   # Multi-stage / JRE 21 runtime container image definition
+├── .dockerignore                                # Excludes unnecessary source / tooling files from Docker image
+├── compose.yaml                                 # Multi-service Docker Compose orchestration (db & api)
+├── .env.example                                 # Example environment configuration for secrets
 ├── mvnw / mvnw.cmd / .mvn/                      # Maven Wrapper binaries & properties
 ├── library_api.postman_collection.json          # Postman Collection for API testing
 ├── src/
